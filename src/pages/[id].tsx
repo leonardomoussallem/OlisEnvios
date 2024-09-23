@@ -1,9 +1,10 @@
 import { useRouter } from 'next/router';
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useState, useEffect } from 'react';
 
 interface FileWithDescription {
   file: File | null;
   description: string;
+  fileUrl?: string; // Adicionando a URL para os arquivos temporários
 }
 
 const UploadPage = () => {
@@ -14,11 +15,15 @@ const UploadPage = () => {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>, index: number) => {
     const files = [...fileData];
-    files[index] = {
-      ...files[index],
-      file: e.target.files ? e.target.files[0] : null,
-    };
-    setFileData(files);
+    const selectedFile = e.target.files ? e.target.files[0] : null;
+    if (selectedFile) {
+      files[index] = {
+        ...files[index],
+        file: selectedFile,
+        fileUrl: URL.createObjectURL(selectedFile), // Gerando a URL para pré-visualização
+      };
+      setFileData(files);
+    }
   };
 
   const handleDescriptionChange = (e: ChangeEvent<HTMLInputElement>, index: number) => {
@@ -42,6 +47,13 @@ const UploadPage = () => {
 
   const removeFile = (index: number) => {
     const updatedFiles = [...submittedFiles];
+    const fileToRemove = updatedFiles[index];
+    
+    // Liberando o URL criado para a pré-visualização
+    if (fileToRemove.fileUrl) {
+      URL.revokeObjectURL(fileToRemove.fileUrl);
+    }
+    
     updatedFiles.splice(index, 1);
     setSubmittedFiles(updatedFiles);
   };
@@ -49,6 +61,17 @@ const UploadPage = () => {
   const isImageFile = (file: File | null) => {
     return file ? file.type.startsWith('image/') : false;
   };
+
+  useEffect(() => {
+    // Limpar URLs criadas para pré-visualização quando o componente for desmontado
+    return () => {
+      submittedFiles.forEach((fileObj) => {
+        if (fileObj.fileUrl) {
+          URL.revokeObjectURL(fileObj.fileUrl);
+        }
+      });
+    };
+  }, [submittedFiles]);
 
   return (
     <div className="bg-gray-50">
@@ -114,12 +137,12 @@ const UploadPage = () => {
                   {fileObj.file && isImageFile(fileObj.file) ? (
                     <div>
                       <img
-                        src={URL.createObjectURL(fileObj.file)}
+                        src={fileObj.fileUrl}
                         alt={fileObj.description}
                         className="mt-4 max-w-full h-auto"
                       />
                       <a
-                        href={URL.createObjectURL(fileObj.file)}
+                        href={fileObj.fileUrl}
                         download={fileObj.file.name}
                         className="block mt-2 text-blue-500 underline"
                       >
@@ -130,7 +153,7 @@ const UploadPage = () => {
                     <div className="flex items-center justify-center mt-4">
                       <span className="text-gray-500">📄 Documento: {fileObj.file?.name}</span>
                       <a
-                        href={URL.createObjectURL(fileObj.file)}
+                        href={fileObj.fileUrl}
                         download={fileObj.file?.name}
                         className="ml-4 text-blue-500 underline"
                       >
